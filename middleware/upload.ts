@@ -20,4 +20,4 @@ export const upload = multer({
   },
   fileFilter: (req, file, cb) =>
     cb(null, allowedExt.includes(path.extname(file.originalname))),
-});
+}).single("file");
