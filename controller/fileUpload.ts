@@ -1,9 +1,12 @@
 import { RequestHandler } from "express";
 import { PrismaClient } from "@prisma/client";
+import { cloudinary } from "../services/cloudinary";
+import { Form } from "../model/form";
+
 import bcrypt from "bcrypt";
 import dotenv from "dotenv";
-
-import { Form } from "../model/form";
+import fs from "fs";
+import path from "path";
 
 dotenv.config();
 
@@ -24,9 +27,13 @@ export const getAllForms: RequestHandler = async (req, res, next) => {
 
 export const uploadFile: RequestHandler = async (req, res, next) => {
   try {
-    const { fullName, email, phone, password }: Form = req.body;
-    const profile: any = `http://localhost:3333/${req.file?.filename}`;
+    let dir = path.join(__dirname + "/../../UploadedFiles");
 
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir);
+    }
+
+    const { fullName, email, phone, password }: Form = req.body;
     if (!email || !password) {
       throw new Error("can't be blank");
     }
@@ -41,18 +48,42 @@ export const uploadFile: RequestHandler = async (req, res, next) => {
       throw new Error("User exists");
     }
 
+    const uploadedFile: any = await cloudinary.uploader.upload(
+      req.file?.path as string,
+      {
+        folder: "UploadedFiles",
+        resource_type: "auto",
+      }
+    );
+
+    const filename: any = req.file?.originalname;
+
+    const { secure_url, bytes, format } = uploadedFile;
+
+    const file = await prisma.file.create({
+      data: {
+        filename,
+        bytes,
+        secure_url,
+        format,
+      },
+    });
+
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const user = await prisma.form.create({
-      data: { fullName, email, phone, password: hashedPassword, profile },
+      data: {
+        fullName,
+        email,
+        phone,
+        password: hashedPassword,
+        profile: secure_url,
+      },
     });
 
-    res
-      .status(201)
-      .json({ user: user, files: req.file, path: `${req.file?.path}` });
-
-    console.log(req.file);
+    return res.status(201).json({ user, file });
   } catch (error) {
-    next(error);
+    console.log(error);
+    res.status(400).json({ success: false, message: "email already exists" });
   }
 };

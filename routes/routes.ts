@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { getAllForms } from "../controller/fileUpload";
 import { uploadFile } from "../controller/fileUpload";
-import { upload } from "../middleware/upload";
+import upload from "../middleware/upload";
 
 const router = Router();
 
